@@ -56,13 +56,6 @@ import { AICaptureModalComponent } from '../ai-capture/ai-capture-modal.componen
                 @if (showMoreMenu()) {
                   <div class="fixed inset-0 z-40" (click)="showMoreMenu.set(false)"></div>
                   <div class="absolute right-0 top-11 z-50 w-48 bg-surface-card border border-border-default rounded-xl shadow-xl overflow-hidden animate-slide-up">
-                    <button (click)="toggleSelectMode(); showMoreMenu.set(false)"
-                            class="w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors flex items-center gap-2.5">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                      </svg>
-                      Select Items
-                    </button>
                     <button (click)="showAddItem.set(true); showMoreMenu.set(false)"
                             class="w-full px-4 py-3 text-left text-sm text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors flex items-center gap-2.5">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,21 +135,6 @@ import { AICaptureModalComponent } from '../ai-capture/ai-capture-modal.componen
           </div>
         }
       </div>
-
-      <!-- Bulk Actions (desktop) -->
-      @if (selectedItems().length > 0) {
-        <div class="hidden md:flex items-center gap-3 mb-3 p-3 bg-surface-card rounded-xl border border-border-default">
-          <span class="text-sm text-text-secondary">{{ selectedItems().length }} selected</span>
-          <select [(ngModel)]="bulkStatus"
-                  class="px-3 py-1.5 bg-surface-elevated border border-border-default rounded-lg text-sm text-text-primary">
-            <option value="">Bulk Action...</option>
-            <option value="in_progress">Set In Progress</option>
-            <option value="resolved">Set Resolved</option>
-          </select>
-          <button (click)="applyBulkStatus()" [disabled]="!bulkStatus"
-                  class="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">Apply</button>
-        </div>
-      }
 
       <!-- Loading -->
       @if (loading()) {
@@ -333,12 +311,6 @@ export class PunchListComponent implements OnInit {
   showMoreMenu = signal(false);
   /** Controls visibility of the expanded trade/severity filter row. */
   showFilters = signal(false);
-  /** UUIDs of items currently selected for bulk actions. */
-  selectedItems = signal<string[]>([]);
-  /** Whether multi-select mode is active. */
-  selectMode = signal(false);
-  /** Target status key for the bulk status action dropdown. */
-  bulkStatus = '';
 
   /** Active filter/sort parameters applied to the item query. */
   filters: PunchItemFilters = {};
@@ -414,66 +386,6 @@ export class PunchListComponent implements OnInit {
   /** Navigates back to the project dashboard. */
   goBack(): void {
     this.router.navigate(['/dashboard']);
-  }
-
-  /** Toggles multi-select mode; clears selections when exiting. */
-  toggleSelectMode(): void {
-    this.selectMode.update(v => !v);
-    if (!this.selectMode()) {
-      this.selectedItems.set([]);
-    }
-  }
-
-  /**
-   * Toggles whether a specific item is included in the selection.
-   * @param id - The punch item UUID to toggle.
-   */
-  toggleSelection(id: string): void {
-    this.selectedItems.update(items =>
-      items.includes(id) ? items.filter(i => i !== id) : [...items, id]
-    );
-  }
-
-  /**
-   * Checks whether a specific item is currently selected.
-   * @param id - The punch item UUID to check.
-   * @returns True if the item is in the selection set.
-   */
-  isSelected(id: string): boolean {
-    return this.selectedItems().includes(id);
-  }
-
-  /**
-   * Checks whether all visible items are currently selected.
-   * @returns True if every item in the list is selected.
-   */
-  allSelected(): boolean {
-    return this.items().length > 0 && this.selectedItems().length === this.items().length;
-  }
-
-  /**
-   * Selects or deselects all items based on the "select all" checkbox state.
-   * @param event - The checkbox change event.
-   */
-  toggleAllSelection(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.selectedItems.set(checked ? this.items().map(i => i.id) : []);
-  }
-
-  /** Applies the selected bulk status transition to all selected items. */
-  applyBulkStatus(): void {
-    if (!this.bulkStatus || this.selectedItems().length === 0) return;
-    this.punchItemService.bulkStatus(this.projectId, this.selectedItems(), this.bulkStatus).subscribe({
-      next: (result) => {
-        this.notificationService.success(`Updated ${result.updated.length} items`);
-        if (result.failed.length > 0) {
-          this.notificationService.warning(`${result.failed.length} items could not be updated`);
-        }
-        this.selectedItems.set([]);
-        this.bulkStatus = '';
-        this.loadItems();
-      }
-    });
   }
 
   /** Submits the manual "Add Item" form to the API and refreshes the list on success. */

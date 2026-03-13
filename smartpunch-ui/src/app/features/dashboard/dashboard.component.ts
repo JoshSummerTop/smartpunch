@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -6,10 +6,11 @@ import { ProjectService } from '../../core/services/project.service';
 import { NotificationService } from '../../core/services/notification.service';
 import { Project, CreateProject } from '../../core/models/project.model';
 import { DatePickerComponent } from '../../shared/components/date-picker.component';
+import { ConfirmModalComponent } from '../../shared/components/confirm-modal.component';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePickerComponent],
+  imports: [CommonModule, FormsModule, DatePickerComponent, ConfirmModalComponent],
   template: `
     <div class="p-4 md:p-8 lg:p-10 max-w-7xl mx-auto bg-surface-base min-h-full">
       <!-- Header -->
@@ -64,9 +65,26 @@ import { DatePickerComponent } from '../../shared/components/date-picker.compone
               <div class="p-5">
                 <div class="flex items-start justify-between mb-3">
                   <h3 class="font-semibold text-text-primary text-sm leading-tight">{{ project.name }}</h3>
-                  <svg class="w-5 h-5 text-text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <div class="relative shrink-0">
+                    <button (click)="toggleProjectMenu($event, project.id)"
+                            class="w-7 h-7 rounded-lg hover:bg-surface-elevated text-text-muted hover:text-text-primary transition-colors flex items-center justify-center">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
+                    @if (openMenuId() === project.id) {
+                      <div class="fixed inset-0 z-40" (click)="openMenuId.set(null)"></div>
+                      <div class="absolute right-0 top-8 z-50 w-44 bg-surface-card border border-border-default rounded-xl shadow-xl overflow-hidden animate-slide-up">
+                        <button (click)="confirmDeleteProject($event, project)"
+                                class="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2.5">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete Project
+                        </button>
+                      </div>
+                    }
+                  </div>
                 </div>
 
                 @if (project.address) {
@@ -184,6 +202,15 @@ import { DatePickerComponent } from '../../shared/components/date-picker.compone
           </div>
         </div>
       }
+
+      <!-- Delete Confirmation Modal -->
+      <app-confirm-modal
+        [isOpen]="showDeleteConfirm()"
+        title="Delete Project"
+        [message]="deleteMessage()"
+        confirmText="Delete"
+        (confirmed)="deleteProject()"
+        (cancelled)="showDeleteConfirm.set(false)" />
     </div>
   `
 })
@@ -205,6 +232,16 @@ export class DashboardComponent implements OnInit {
   showCreateModal = signal(false);
   /** Current search input value, used to filter projects by name/address. */
   searchTerm = signal('');
+  /** ID of the project whose ellipsis menu is currently open. */
+  openMenuId = signal<string | null>(null);
+  /** Controls visibility of the delete confirmation modal. */
+  showDeleteConfirm = signal(false);
+  /** The project currently targeted for deletion. */
+  projectToDelete = signal<Project | null>(null);
+  deleteMessage = computed(() => {
+    const name = this.projectToDelete()?.name || '';
+    return `This will permanently delete '${name}' and all its punch items. This cannot be undone.`;
+  });
 
   /** Form data for the "create project" modal. */
   newProject: CreateProject = { name: '' };
@@ -251,6 +288,31 @@ export class DashboardComponent implements OnInit {
     if (pct > 70) return 'border-green-500/40';
     if (pct > 30) return 'border-orange-500/40';
     return 'border-red-500/40';
+  }
+
+  toggleProjectMenu(event: Event, projectId: string): void {
+    event.stopPropagation();
+    this.openMenuId.update(id => id === projectId ? null : projectId);
+  }
+
+  confirmDeleteProject(event: Event, project: Project): void {
+    event.stopPropagation();
+    this.openMenuId.set(null);
+    this.projectToDelete.set(project);
+    this.showDeleteConfirm.set(true);
+  }
+
+  deleteProject(): void {
+    const project = this.projectToDelete();
+    if (!project) return;
+    this.projectService.delete(project.id).subscribe({
+      next: () => {
+        this.notificationService.success('Project deleted');
+        this.showDeleteConfirm.set(false);
+        this.projectToDelete.set(null);
+        this.loadProjects();
+      }
+    });
   }
 
   /** Submits the new project form to the API, then refreshes the project list on success. */
