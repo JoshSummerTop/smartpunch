@@ -1,0 +1,53 @@
+services:
+  - type: web
+    name: smartpunch
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    disk:
+      name: smartpunch-storage
+      mountPath: /app/storage
+      sizeGB: 1
+    envVars:
+      - key: APP_NAME
+        value: SmartPunch
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        fromService:
+          type: web
+          name: smartpunch
+          property: host
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: smartpunch-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-20250514
+      - key: FRONTEND_URL
+        value: ""
+      - key: SESSION_DRIVER
+        value: file
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr
+    preDeployCommand: "cd /app && php artisan migrate --force"
+
+databases:
+  - name: smartpunch-db
+    plan: free
+    databaseName: smartpunch
+    user: smartpunch
+    postgresMajorVersion: "16"

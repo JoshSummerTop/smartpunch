@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: smartpunch
+      POSTGRES_USER: smartpunch
+      POSTGRES_PASSWORD: smartpunch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartpunch"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ./smartpunch-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./smartpunch-api:/app
+      - /app/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: smartpunch
+      DB_USERNAME: smartpunch
+      DB_PASSWORD: smartpunch
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+volumes:
+  pgdata:
