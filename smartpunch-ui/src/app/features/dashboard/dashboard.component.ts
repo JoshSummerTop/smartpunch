@@ -73,7 +73,7 @@ import { ConfirmModalComponent } from '../../shared/components/confirm-modal.com
                       </svg>
                     </button>
                     @if (openMenuId() === project.id) {
-                      <div class="fixed inset-0 z-40" (click)="openMenuId.set(null)"></div>
+                      <div class="fixed inset-0 z-40" (click)="closeMenu($event)"></div>
                       <div class="absolute right-0 top-8 z-50 w-44 bg-surface-card border border-border-default rounded-xl shadow-xl overflow-hidden animate-slide-up">
                         <button (click)="confirmDeleteProject($event, project)"
                                 class="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2.5">
@@ -288,6 +288,11 @@ export class DashboardComponent implements OnInit {
     if (pct > 70) return 'border-green-500/40';
     if (pct > 30) return 'border-orange-500/40';
     return 'border-red-500/40';
+  }
+
+  closeMenu(event: Event): void {
+    event.stopPropagation();
+    this.openMenuId.set(null);
   }
 
   toggleProjectMenu(event: Event, projectId: string): void {
